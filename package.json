@@ -11,6 +11,7 @@
   "dependencies": {
     "cheerio": "^0.22.0",
     "got": "^6.5.0",
-    "lodash": "^4.16.2"
+    "lodash": "^4.16.2",
+    "phantomjs-prebuilt": "^2.1.12"
   }
 }
