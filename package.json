@@ -12,6 +12,7 @@
     "cheerio": "^0.22.0",
     "got": "^6.5.0",
     "lodash": "^4.16.2",
+    "phantom": "^2.1.21",
     "phantomjs-prebuilt": "^2.1.12"
   }
 }
