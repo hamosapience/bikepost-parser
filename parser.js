@@ -2,7 +2,7 @@ const cheerio = require('cheerio');
 const _ = require('lodash');
 const got = require('got');
 
-const baseUrl = 'http://bikepost.ru/blog/wsbk/';
+const baseUrl = 'http://bikepost.ru/blog/travel/';
 
 const authHeaders = {
     'Cookie': 'PHPSESSID=c75a8c294850757715bb696d81efd974; _ym_uid=1475884668437410294; _ym_isad=2; __utmt=1; key=de4b5d1c436b14504d54bac4cdd2c207; image_id=2; __utma=99723405.1180717811.1475884668.1475884668.1475884668.1; __utmb=99723405.2.10.1475884670; __utmc=99723405; __utmz=99723405.1475884670.1.1.utmcsr=google|utmccn=(organic)|utmcmd=organic|utmctr=(not%20provided)',
@@ -34,11 +34,7 @@ function asyncDo(actions) {
         .then(last => results.slice(1).concat(last));
 }
 
-let ok = false;
-
 function getPostList(pageUrl) {
-    let sitepage;
-
     return got(pageUrl, {
         headers: authHeaders
     })
