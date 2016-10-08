@@ -1,12 +1,11 @@
 const cheerio = require('cheerio');
 const _ = require('lodash');
 const got = require('got');
-var phantom = require('phantom');
 
 const baseUrl = 'http://bikepost.ru/blog/wsbk/';
 
 const authHeaders = {
-    'Cookie': 'PHPSESSID=f229352dea1ef32f3e289a1bbf17bb29; _ym_uid=1475419381945779301; _ym_isad=2; image_id=2; __utma=99723405.572694598.1475419381.1475419381.1475442653.2; __utmb=99723405.2.10.1475442656; __utmc=99723405; __utmz=99723405.1475419382.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none)',
+    'Cookie': 'PHPSESSID=c75a8c294850757715bb696d81efd974; _ym_uid=1475884668437410294; _ym_isad=2; __utmt=1; key=de4b5d1c436b14504d54bac4cdd2c207; image_id=2; __utma=99723405.1180717811.1475884668.1475884668.1475884668.1; __utmb=99723405.2.10.1475884670; __utmc=99723405; __utmz=99723405.1475884670.1.1.utmcsr=google|utmccn=(organic)|utmcmd=organic|utmctr=(not%20provided)',
     'Host': 'bikepost.ru',
     'Origin': 'http://bikepost.ru',
     'Proxy-Authorization': 'Basic QFRLLTkzNmYzNDJkLTc0ZGUtNGY4Zi1iOTE4LTBjMjIzYWMzM2VjNDpAVEstOTM2ZjM0MmQtNzRkZS00ZjhmLWI5MTgtMGMyMjNhYzMzZWM0',
@@ -26,8 +25,6 @@ const votePostHeaders = {
 function asyncDo(actions) {
     let results = [];
 
-    console.log('asyncDo', actions);
-
     return actions.reduce((prev, action) => {
         return prev.then(prevResult => {
             results.push(prevResult);
@@ -39,89 +36,88 @@ function asyncDo(actions) {
 
 let ok = false;
 
-let phInstance;
-let pageInstance = phantom.create()
-    .then(instance => {
-        phInstance = instance;
-        return instance.createPage();
-    });
-
 function getPostList(pageUrl) {
     let sitepage;
 
-    return pageInstance.then(page => {
-            console.log('phantom open:', pageUrl);
-            sitepage = page;
-            return page.open(pageUrl, {
-                headers: authHeaders
-            });
-        })
-        .then(status => sitepage.property('content'))
-        .then(content => {
+    return got(pageUrl, {
+        headers: authHeaders
+    })
+    .then(response => {
+        return response.body;
+    })
+    .then(content => {
 
-            const $ = cheerio.load(content);
-            const sessionId = getSessionId($('head').html());
+        const $ = cheerio.load(content);
+        const sessionId = getSessionId($('head').html());
 
-            const topicGetters = $('.topic').map((i, elem) => {
-                const $elem = $(elem);
+        const topicGetters = $('.topic').map((i, elem) => {
+            const $elem = $(elem);
 
-                const $link = $elem.find('.title-topic');
-                const $username = $elem.find(".username a");
-                const postId = $elem.html().match(/vote_area_topic_(\d+)/)[1];
-                const favCount = parseInt($elem.find('.favourite-count').text()) || 0;
+            const $link = $elem.find('.title-topic');
+            const $username = $elem.find(".username a");
+            const postId = $elem.html().match(/vote_area_topic_(\d+)/)[1];
+            const favCount = parseInt($elem.find('.favourite-count').text()) || 0;
+            const commentCount = parseInt($elem.find('.comments-link span').text()) || 0;
 
-                const ratingContent = $elem.find('.voting .total').text().trim();
+            const ratingContent = $elem.find('.voting .total').text().trim();
 
-                let ratingGetter = null;
+            let ratingGetter = null;
 
-                if (ratingContent !== '?') {
-                    let ratingValue = parseInt(ratingContent.match(/([+-]\d+)/)[1]);
-                    ratingGetter = Promise.resolve(ratingValue);
-                } else {
-                    ratingGetter = getPostRating(sessionId, postId);
-                }
+            if (ratingContent !== '?') {
+                let ratingValue = parseInt(ratingContent.match(/([+-]\d+)/)[1]);
+                ratingGetter = () => Promise.resolve(ratingValue);
+            } else {
+                ratingGetter = () => getPostRating(sessionId, postId);
+            }
 
-                console.log('ratingGetter', ratingGetter);
-
-                return (() => {
-                    return ratingGetter.then(rating => {
-                        return {
-                            id: postId,
-                            title: $link.text(),
-                            url: $link.attr('href'),
-                            author: $username.text(),
-                            author_link: $username.attr('href'),
-                            fav_count: favCount,
-                            rating: rating
-                        };
-                    });
+            return (() => {
+                return ratingGetter().then(rating => {
+                    return {
+                        id: postId,
+                        title: $link.text(),
+                        url: $link.attr('href'),
+                        author: $username.text(),
+                        author_link: $username.attr('href'),
+                        fav_count: favCount,
+                        rating: rating,
+                        comment_count: commentCount
+                    };
                 });
-            }).toArray();
+            });
+        }).toArray();
 
-            return asyncDo(topicGetters);
-
-            sitepage.close();
-            phInstance.exit();
-        })
-        .then(topics => {
-            console.log(topics);
-        })
-        .catch(error => {
-            console.log(error);
-            phInstance.exit();
-        }); 
-
+        return asyncDo(topicGetters);
+    })
+    .then(topics => {
+        return topics;
+    });
 }
 
 function getPostRating(sessionId, postId) {
-    console.log('getPostRating', postId);
-    return Promise.resolve();
+    return got('http://bikepost.ru/ajax/vote/topic/', {
+        body: {
+            value: 1,
+            idTopic: postId,
+            security_ls_key: sessionId
+        },
+        headers: authHeaders
+    }).then(response => {
+        try {
+            return JSON.parse(response.body).iRating;
+        } catch (e) {
+            console.error('error getting rating:', e);
+            return null;
+        }
+    }).then(rating => {
+        return new Promise(resolve => {
+            setTimeout(() => resolve(rating), 200);
+        });
+    });
 }
 
 function getSessionId(headContent) {
     return headContent.match(/LIVESTREET_SECURITY_KEY\s+=\s'(\w+)'/)[1];
 }
-
 
 function getPageCount(url) {
     return got(url).then(response => {
@@ -131,18 +127,16 @@ function getPageCount(url) {
 }
 
 function start(baseUrl) {
-
     getPageCount(baseUrl).then(pageCount => {
-        console.log('pageCount', pageCount);
-
-        const result = asyncDo(_.range(1, 2).map(pageIndex => {
+        const result = asyncDo(_.range(1, 4).map(pageIndex => {
             return () => {
                 const pageUrl = `${baseUrl}page${pageIndex}` ;
                 return getPostList(pageUrl);
             }
-        }));           
+        })).then(data => {
+            console.log(_.flatten(data));
+        });
     });
-
 }
 
 start(baseUrl);
