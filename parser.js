@@ -62,7 +62,7 @@ function getPostList(pageUrl) {
             let ratingGetter = null;
 
             if (!$link.text()) {
-                console.error('WRONG POST', $elem.html());
+                console.error('WRONG POST', $elem.html().replace(/\n/g, ''));
                 return () => Promise.resolve({});
             }
 
@@ -82,7 +82,7 @@ function getPostList(pageUrl) {
                     ratingGetter = () => getPostRating(sessionId, postId);
                 }
             } catch (e) {
-                console.error("PARSING ERROR", e, $elem.html());
+                console.error("PARSING ERROR", e, $elem.html().replace(/\n/g, ''));
                 throw 'PARSING ERROR';
             }
 
