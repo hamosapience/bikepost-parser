@@ -76,7 +76,7 @@ function getPostList(pageUrl) {
                 const ratingContent = $elem.find('.voting .total').text().trim();
 
                 if (ratingContent !== '?') {
-                    ratingValue = parseInt(ratingContent.match(/([+-]\d+)/)[1]);
+                    ratingValue = parseInt(ratingContent.match(/([+-]?\d+)/)[1]);
                     ratingGetter = () => Promise.resolve(ratingValue);
                 } else {
                     ratingGetter = () => getPostRating(sessionId, postId);
