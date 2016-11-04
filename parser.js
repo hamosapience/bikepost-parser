@@ -53,25 +53,37 @@ function getPostList(pageUrl) {
             const $elem = $(elem);
             const $link = $elem.find('.title-topic');
 
-            if (!$link.text()) {
-                return () => Promise.resolve({});
-            }
-
-            const $username = $elem.find(".username a");
-            const postId = $elem.html().match(/vote_area_topic_(\d+)/)[1];
-            const favCount = parseInt($elem.find('.favourite-count').text()) || 0;
-            const commentCount = parseInt($elem.find('.comments-link span').text()) || 0;
-            const rawDate = $elem.find('.panel').eq(2).text() || '';
-
-            const ratingContent = $elem.find('.voting .total').text().trim();
+            let postId;
+            let favCount;
+            let commentCount;
+            let rawDate;
+            let ratingValue;
 
             let ratingGetter = null;
 
-            if (ratingContent !== '?') {
-                let ratingValue = parseInt(ratingContent.match(/([+-]\d+)/)[1]);
-                ratingGetter = () => Promise.resolve(ratingValue);
-            } else {
-                ratingGetter = () => getPostRating(sessionId, postId);
+            if (!$link.text()) {
+                console.error('WRONG POST', $elem.html());
+                return () => Promise.resolve({});
+            }
+
+            try {
+                $username = $elem.find(".username a");
+                postId = $elem.html().match(/vote_area_topic_(\d+)/)[1];
+                favCount = parseInt($elem.find('.favourite-count').text()) || 0;
+                commentCount = parseInt($elem.find('.comments-link span').text()) || 0;
+                rawDate = $elem.find('.panel').eq(2).text() || '';
+
+                const ratingContent = $elem.find('.voting .total').text().trim();
+
+                if (ratingContent !== '?') {
+                    ratingValue = parseInt(ratingContent.match(/([+-]\d+)/)[1]);
+                    ratingGetter = () => Promise.resolve(ratingValue);
+                } else {
+                    ratingGetter = () => getPostRating(sessionId, postId);
+                }
+            } catch (e) {
+                console.error("PARSING ERROR", e, $elem.html());
+                throw 'PARSING ERROR';
             }
 
             return (() => {
