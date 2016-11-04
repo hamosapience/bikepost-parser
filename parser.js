@@ -2,10 +2,10 @@ const cheerio = require('cheerio');
 const _ = require('lodash');
 const got = require('got');
 
-const baseUrl = 'http://bikepost.ru/blog/travel/';
+const baseUrl = 'http://bikepost.ru/new/';
 
 const authHeaders = {
-    'Cookie': 'PHPSESSID=c75a8c294850757715bb696d81efd974; _ym_uid=1475884668437410294; _ym_isad=2; __utmt=1; key=de4b5d1c436b14504d54bac4cdd2c207; image_id=2; __utma=99723405.1180717811.1475884668.1475884668.1475884668.1; __utmb=99723405.2.10.1475884670; __utmc=99723405; __utmz=99723405.1475884670.1.1.utmcsr=google|utmccn=(organic)|utmcmd=organic|utmctr=(not%20provided)',
+    'Cookie': '_ym_uid=1475884668437410294; PHPSESSID=06a17d27be6b1ed0406a71d6fdf921df; _ym_isad=2; __utmt=1; __utma=99723405.1180717811.1475884668.1475967760.1478298721.7; __utmb=99723405.1.10.1478298722; __utmc=99723405; __utmz=99723405.1475884670.1.1.utmcsr=google|utmccn=(organic)|utmcmd=organic|utmctr=(not%20provided); key=d39b03099d5f873924b66595c4ddfa6b; image_id=2',
     'Host': 'bikepost.ru',
     'Origin': 'http://bikepost.ru',
     'Proxy-Authorization': 'Basic QFRLLTkzNmYzNDJkLTc0ZGUtNGY4Zi1iOTE4LTBjMjIzYWMzM2VjNDpAVEstOTM2ZjM0MmQtNzRkZS00ZjhmLWI5MTgtMGMyMjNhYzMzZWM0',
@@ -35,6 +35,9 @@ function asyncDo(actions) {
 }
 
 function getPostList(pageUrl) {
+    console.error('page url:', pageUrl);
+    const pageRequestTime = Date.now();
+
     return got(pageUrl, {
         headers: authHeaders
     })
@@ -48,12 +51,17 @@ function getPostList(pageUrl) {
 
         const topicGetters = $('.topic').map((i, elem) => {
             const $elem = $(elem);
-
             const $link = $elem.find('.title-topic');
+
+            if (!$link.text()) {
+                return () => Promise.resolve({});
+            }
+
             const $username = $elem.find(".username a");
             const postId = $elem.html().match(/vote_area_topic_(\d+)/)[1];
             const favCount = parseInt($elem.find('.favourite-count').text()) || 0;
             const commentCount = parseInt($elem.find('.comments-link span').text()) || 0;
+            const rawDate = $elem.find('.panel').eq(2).text() || '';
 
             const ratingContent = $elem.find('.voting .total').text().trim();
 
@@ -76,7 +84,9 @@ function getPostList(pageUrl) {
                         author_link: $username.attr('href'),
                         fav_count: favCount,
                         rating: rating,
-                        comment_count: commentCount
+                        comment_count: commentCount,
+                        rawDate: rawDate,
+                        pageRequestTime: pageRequestTime
                     };
                 });
             });
@@ -86,6 +96,9 @@ function getPostList(pageUrl) {
     })
     .then(topics => {
         return topics;
+    })
+    .catch(e => {
+        console.error(e);
     });
 }
 
@@ -106,7 +119,7 @@ function getPostRating(sessionId, postId) {
         }
     }).then(rating => {
         return new Promise(resolve => {
-            setTimeout(() => resolve(rating), 200);
+            setTimeout(() => resolve(rating), 100);
         });
     });
 }
@@ -118,19 +131,20 @@ function getSessionId(headContent) {
 function getPageCount(url) {
     return got(url).then(response => {
         const $ = cheerio.load(response.body);
-        return $(".pagination ul li").last().find("a").text()
+        return parseInt($(".pagination ul li").last().find("a").text());
     });
 }
 
 function start(baseUrl) {
     getPageCount(baseUrl).then(pageCount => {
-        const result = asyncDo(_.range(1, 4).map(pageIndex => {
+        console.error('pageCount:', pageCount);
+        const result = asyncDo(_.range(1, pageCount).map(pageIndex => {
             return () => {
                 const pageUrl = `${baseUrl}page${pageIndex}` ;
                 return getPostList(pageUrl);
             }
         })).then(data => {
-            console.log(_.flatten(data));
+            console.log(JSON.stringify(_.flatten(data), null, 2));
         });
     });
 }
