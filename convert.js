@@ -9,4 +9,4 @@ var fixed = json.map(function(item) {
 });
 
 var result = json2csv({ data: fixed});
-console.log(result);  
+console.log(result);
