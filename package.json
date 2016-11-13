@@ -4,7 +4,8 @@
   "description": "",
   "main": "parser.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "upload": "mongoimport -h ds055722.mlab.com:55722 -d bikepost -c posts -u hamosapience -p b1k3p04t --file fixed.json --jsonArray --drop"
   },
   "author": "",
   "license": "ISC",
